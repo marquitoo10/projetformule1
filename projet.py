@@ -12,11 +12,11 @@ def load_data():
         st.error(f"Erreur lors du chargement des fichiers : {e}")
         return None, None, None
 
-def filter_data_for_2024(races_df, results_df, seasons_df):
+def filter_data_for_seasons(races_df, results_df, seasons_df, years):
     if races_df is None or results_df is None or seasons_df is None:
         st.error("Données manquantes pour le filtrage.")
         return None, None
-    
+
     # Vérification des colonnes dans seasons_df
     missing_columns = []
     if 'year' not in seasons_df.columns:
@@ -35,43 +35,45 @@ def filter_data_for_2024(races_df, results_df, seasons_df):
         st.error("Colonnes manquantes dans results_df.")
         return None, None
 
-    # Simuler les courses pour 2024
-    num_races = 23  # Nombre typique de courses dans une saison de F1
-    simulated_races = pd.DataFrame({
-        'raceid': range(max(races_df['raceid'].max() + 1, 1), max(races_df['raceid'].max() + 1, 1) + num_races),
-        'year': [2024] * num_races,
-        'round': range(1, num_races + 1),
-        'circuitid': range(1, num_races + 1),
-        'name': [f"Race {i}" for i in range(1, num_races + 1)],
-        'date': pd.date_range(start='2024-01-01', periods=num_races, freq='W'),
-        'time': ['15:00:00'] * num_races,
-        'url': [f"http://en.wikipedia.org/wiki/2024_Race_{i}" for i in range(1, num_races + 1)],
-        'fp1_date': [np.nan] * num_races,
-        'fp1_time': [np.nan] * num_races,
-        'fp2_date': [np.nan] * num_races,
-        'fp2_time': [np.nan] * num_races,
-        'fp3_date': [np.nan] * num_races,
-        'fp3_time': [np.nan] * num_races,
-        'quali_date': [np.nan] * num_races,
-        'quali_time': [np.nan] * num_races,
-        'sprint_date': [np.nan] * num_races,
-        'sprint_time': [np.nan] * num_races
-    })
+    # Simuler les courses pour les années spécifiées
+    simulated_races_list = []
+    for year in years:
+        num_races = 23  # Nombre typique de courses dans une saison de F1
+        simulated_races = pd.DataFrame({
+            'raceid': range(max(races_df['raceid'].max() + 1, 1), max(races_df['raceid'].max() + 1, 1) + num_races),
+            'year': [year] * num_races,
+            'round': range(1, num_races + 1),
+            'circuitid': range(1, num_races + 1),
+            'name': [f"Race {i}" for i in range(1, num_races + 1)],
+            'date': pd.date_range(start=f'{year}-01-01', periods=num_races, freq='W'),
+            'time': ['15:00:00'] * num_races,
+            'url': [f"http://en.wikipedia.org/wiki/{year}_Race_{i}" for i in range(1, num_races + 1)],
+            'fp1_date': [np.nan] * num_races,
+            'fp1_time': [np.nan] * num_races,
+            'fp2_date': [np.nan] * num_races,
+            'fp2_time': [np.nan] * num_races,
+            'fp3_date': [np.nan] * num_races,
+            'fp3_time': [np.nan] * num_races,
+            'quali_date': [np.nan] * num_races,
+            'quali_time': [np.nan] * num_races,
+            'sprint_date': [np.nan] * num_races,
+            'sprint_time': [np.nan] * num_races
+        })
+        simulated_races_list.append(simulated_races)
 
     # Ajouter les courses simulées à races_df
-    races_df_simulated = pd.concat([races_df, simulated_races], ignore_index=True)
+    races_df_simulated = pd.concat([races_df] + simulated_races_list, ignore_index=True)
 
-    # Filtrage des données pour la saison 2024
-    season_2024 = seasons_df[seasons_df['year'] == 2024]
-    if season_2024.empty:
-        st.warning("Aucune donnée pour la saison 2024 trouvée dans seasons_df.")
+    # Filtrage des données pour les années spécifiées
+    seasons_filtered = seasons_df[seasons_df['year'].isin(years)]
+    if seasons_filtered.empty:
+        st.warning(f"Aucune donnée pour les saisons {years} trouvée dans seasons_df.")
         return None, None
 
-    # En supposant que les courses de 2024 sont identifiées dans races_df par la colonne 'year'
-    races_2024 = races_df_simulated[races_df_simulated['year'] == 2024]
-    results_2024 = results_df[results_df['raceid'].isin(races_2024['raceid'])]
+    races_filtered = races_df_simulated[races_df_simulated['year'].isin(years)]
+    results_filtered = results_df[results_df['raceid'].isin(races_filtered['raceid'])]
 
-    return races_2024, results_2024
+    return races_filtered, results_filtered
 
 def main():
     races_df, results_df, seasons_df = load_data()
@@ -81,16 +83,17 @@ def main():
         st.error("Une ou plusieurs données n'ont pas été chargées correctement.")
         return
 
-    # Filtrage des données pour 2024
-    races_2024, results_2024 = filter_data_for_2024(races_df, results_df, seasons_df)
+    # Filtrage des données pour 2023 et 2024
+    years = [2023, 2024]
+    races_filtered, results_filtered = filter_data_for_seasons(races_df, results_df, seasons_df, years)
 
     # Affichage des données filtrées
-    if races_2024 is not None and results_2024 is not None:
-        st.write("Courses en 2024:")
-        st.dataframe(races_2024)
+    if races_filtered is not None and results_filtered is not None:
+        st.write("Courses en 2023 et 2024:")
+        st.dataframe(races_filtered)
 
-        st.write("Résultats en 2024:")
-        st.dataframe(results_2024)
+        st.write("Résultats en 2023 et 2024:")
+        st.dataframe(results_filtered)
 
 if __name__ == "__main__":
     main()
