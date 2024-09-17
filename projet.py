@@ -8,12 +8,14 @@ def load_data():
         races_df = pd.read_csv('cleaned_races.csv')
         results_df = pd.read_csv('cleaned_results.csv')
         seasons_df = pd.read_csv('cleaned_seasons.csv')
-        return races_df, results_df, seasons_df
+        constructors_df = pd.read_csv('cleaned_constructors.csv')
+        drivers_df = pd.read_csv('cleaned_drivers.csv')
+        return races_df, results_df, seasons_df, constructors_df, drivers_df
     except FileNotFoundError as e:
         st.error(f"Erreur lors du chargement des fichiers : {e}")
-        return None, None, None
+        return None, None, None, None, None
 
-def filter_data_for_seasons(races_df, results_df, seasons_df, years):
+def filter_data_for_seasons(races_df, results_df, seasons_df, constructors_df, drivers_df, years):
     if races_df is None or results_df is None or seasons_df is None:
         st.error("Données manquantes pour le filtrage.")
         return None, None
@@ -33,6 +35,19 @@ def filter_data_for_seasons(races_df, results_df, seasons_df, years):
     if 'resultid' not in results_df.columns or 'raceid' not in results_df.columns:
         st.error("Colonnes manquantes dans results_df.")
         return None, None
+
+    # Fusionner les DataFrames pour obtenir les noms des pilotes et des constructeurs
+    results_with_names = results_df.merge(drivers_df[['driverid', 'forename', 'surname']],
+                                          left_on='driverid', right_on='driverid', how='left')
+    results_with_names = results_with_names.merge(constructors_df[['constructorid', 'name']],
+                                                  left_on='constructorid', right_on='constructorid', how='left')
+
+    # Renommer les colonnes pour la création des graphiques
+    results_with_names = results_with_names.rename(columns={
+        'name': 'name_constructor',
+        'forename': 'driver_forename',
+        'surname': 'driver_surname'
+    })
 
     simulated_races_list = []
     for year in years:
@@ -67,29 +82,29 @@ def filter_data_for_seasons(races_df, results_df, seasons_df, years):
         return None, None
 
     races_filtered = races_df_simulated[races_df_simulated['year'].isin(years)]
-    results_filtered = results_df[results_df['raceid'].isin(races_filtered['raceid'])]
+    results_filtered = results_with_names[results_with_names['raceid'].isin(races_filtered['raceid'])]
 
     return races_filtered, results_filtered
 
 def create_plots(races_df, results_df):
-    results_by_constructor = results_df.groupby('constructorid')['points'].sum().reset_index()
+    results_by_constructor = results_df.groupby('name_constructor')['points'].sum().reset_index()
     fig_constructor_points = px.bar(
         results_by_constructor,
-        x='constructorid',
+        x='name_constructor',
         y='points',
         title='Points Totaux par Constructeur (2023 et 2024)',
-        labels={'constructorid': 'ID du Constructeur', 'points': 'Points'},
+        labels={'name_constructor': 'Nom du Constructeur', 'points': 'Points'},
         text='points'
     )
     fig_constructor_points.update_traces(texttemplate='%{text:.2s}', textposition='outside')
 
-    results_by_driver = results_df.groupby('driverid')['points'].sum().reset_index()
+    results_by_driver = results_df.groupby(['driver_forename', 'driver_surname'])['points'].sum().reset_index()
     fig_driver_points = px.bar(
         results_by_driver,
-        x='driverid',
+        x='driver_forename',
         y='points',
         title='Points Totaux par Pilote (2023 et 2024)',
-        labels={'driverid': 'ID du Pilote', 'points': 'Points'},
+        labels={'driver_forename': 'Prénom du Pilote', 'points': 'Points'},
         text='points'
     )
     fig_driver_points.update_traces(texttemplate='%{text:.2s}', textposition='outside')
@@ -97,14 +112,14 @@ def create_plots(races_df, results_df):
     return fig_constructor_points, fig_driver_points
 
 def main():
-    races_df, results_df, seasons_df = load_data()
+    races_df, results_df, seasons_df, constructors_df, drivers_df = load_data()
 
-    if any(df is None for df in [races_df, results_df, seasons_df]):
+    if any(df is None for df in [races_df, results_df, seasons_df, constructors_df, drivers_df]):
         st.error("Une ou plusieurs données n'ont pas été chargées correctement.")
         return
 
     years = [2023, 2024]
-    races_filtered, results_filtered = filter_data_for_seasons(races_df, results_df, seasons_df, years)
+    races_filtered, results_filtered = filter_data_for_seasons(races_df, results_df, seasons_df, constructors_df, drivers_df, years)
 
     if races_filtered is not None and results_filtered is not None:
         st.write("Courses en 2023 et 2024:")
