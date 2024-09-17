@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import streamlit as st
+import plotly.express as px
 
 def load_data():
     try:
@@ -17,7 +18,6 @@ def filter_data_for_seasons(races_df, results_df, seasons_df, years):
         st.error("Données manquantes pour le filtrage.")
         return None, None
 
-    # Vérification des colonnes dans seasons_df
     missing_columns = []
     if 'year' not in seasons_df.columns:
         missing_columns.append('year')
@@ -26,7 +26,6 @@ def filter_data_for_seasons(races_df, results_df, seasons_df, years):
         st.error(f"Colonnes manquantes dans seasons_df: {', '.join(missing_columns)}")
         return None, None
 
-    # Vérification des colonnes dans races_df et results_df
     if 'raceid' not in races_df.columns or 'year' not in races_df.columns:
         st.error("Colonnes manquantes dans races_df.")
         return None, None
@@ -35,10 +34,9 @@ def filter_data_for_seasons(races_df, results_df, seasons_df, years):
         st.error("Colonnes manquantes dans results_df.")
         return None, None
 
-    # Simuler les courses pour les années spécifiées
     simulated_races_list = []
     for year in years:
-        num_races = 23  # Nombre typique de courses dans une saison de F1
+        num_races = 23
         simulated_races = pd.DataFrame({
             'raceid': range(max(races_df['raceid'].max() + 1, 1), max(races_df['raceid'].max() + 1, 1) + num_races),
             'year': [year] * num_races,
@@ -61,10 +59,8 @@ def filter_data_for_seasons(races_df, results_df, seasons_df, years):
         })
         simulated_races_list.append(simulated_races)
 
-    # Ajouter les courses simulées à races_df
     races_df_simulated = pd.concat([races_df] + simulated_races_list, ignore_index=True)
 
-    # Filtrage des données pour les années spécifiées
     seasons_filtered = seasons_df[seasons_df['year'].isin(years)]
     if seasons_filtered.empty:
         st.warning(f"Aucune donnée pour les saisons {years} trouvée dans seasons_df.")
@@ -75,25 +71,52 @@ def filter_data_for_seasons(races_df, results_df, seasons_df, years):
 
     return races_filtered, results_filtered
 
+def create_plots(races_df, results_df):
+    results_by_constructor = results_df.groupby('constructorid')['points'].sum().reset_index()
+    fig_constructor_points = px.bar(
+        results_by_constructor,
+        x='constructorid',
+        y='points',
+        title='Points Totaux par Constructeur (2023 et 2024)',
+        labels={'constructorid': 'ID du Constructeur', 'points': 'Points'},
+        text='points'
+    )
+    fig_constructor_points.update_traces(texttemplate='%{text:.2s}', textposition='outside')
+
+    results_by_driver = results_df.groupby('driverid')['points'].sum().reset_index()
+    fig_driver_points = px.bar(
+        results_by_driver,
+        x='driverid',
+        y='points',
+        title='Points Totaux par Pilote (2023 et 2024)',
+        labels={'driverid': 'ID du Pilote', 'points': 'Points'},
+        text='points'
+    )
+    fig_driver_points.update_traces(texttemplate='%{text:.2s}', textposition='outside')
+
+    return fig_constructor_points, fig_driver_points
+
 def main():
     races_df, results_df, seasons_df = load_data()
 
-    # Vérifie chaque DataFrame individuellement
     if any(df is None for df in [races_df, results_df, seasons_df]):
         st.error("Une ou plusieurs données n'ont pas été chargées correctement.")
         return
 
-    # Filtrage des données pour 2023 et 2024
     years = [2023, 2024]
     races_filtered, results_filtered = filter_data_for_seasons(races_df, results_df, seasons_df, years)
 
-    # Affichage des données filtrées
     if races_filtered is not None and results_filtered is not None:
         st.write("Courses en 2023 et 2024:")
         st.dataframe(races_filtered)
 
         st.write("Résultats en 2023 et 2024:")
         st.dataframe(results_filtered)
+
+        fig_constructor_points, fig_driver_points = create_plots(races_filtered, results_filtered)
+
+        st.plotly_chart(fig_constructor_points)
+        st.plotly_chart(fig_driver_points)
 
 if __name__ == "__main__":
     main()
