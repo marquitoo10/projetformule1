@@ -135,3 +135,91 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+def filter_data_for_seasons(races_df, results_df, seasons_df, constructors_df, drivers_df, years):
+    races_filtered = races_df[races_df['year'].isin(years)]
+    results_filtered = results_df[results_df['raceid'].isin(races_filtered['raceid'])]
+    return races_filtered, results_filtered
+
+# Example function for creating plots
+def create_plots(races_filtered, results_filtered):
+    fig_constructor_points = px.bar(
+        results_filtered, 
+        x='constructor', 
+        y='points', 
+        title='Points par constructeur'
+    )
+    
+    fig_driver_points = px.bar(
+        results_filtered, 
+        x='driver', 
+        y='points', 
+        title='Points par pilote'
+    )
+    
+    return fig_constructor_points, fig_driver_points
+
+# Function for additional plots
+def create_additional_plots(results_filtered):
+    fig_avg_speed = px.line(
+        results_filtered, 
+        x='raceid', 
+        y='average_speed', 
+        title='Vitesse moyenne par course'
+    )
+    
+    fig_finish_time = px.line(
+        results_filtered, 
+        x='raceid', 
+        y='finish_time', 
+        title='Temps d\'arrivée moyen par course'
+    )
+    
+    return fig_avg_speed, fig_finish_time
+
+# Main function
+def main():
+    # Sample DataFrames (replace with your actual data loading logic)
+    races_df = pd.DataFrame({
+        'raceid': [1, 2, 3],
+        'year': [2023, 2024, 2024]
+    })
+
+    results_df = pd.DataFrame({
+        'raceid': [1, 2, 3],
+        'constructor': ['Mercedes', 'Red Bull', 'Ferrari'],
+        'driver': ['Hamilton', 'Verstappen', 'Leclerc'],
+        'points': [25, 18, 15],
+        'average_speed': [220.5, 221.0, 222.3],
+        'finish_time': [90.2, 91.5, 89.7]
+    })
+
+    seasons_df = pd.DataFrame()
+    constructors_df = pd.DataFrame()
+    drivers_df = pd.DataFrame()
+
+    years = [2023, 2024]
+
+    # Filter the data
+    races_filtered, results_filtered = filter_data_for_seasons(races_df, results_df, seasons_df, constructors_df, drivers_df, years)
+
+    if races_filtered is not None and results_filtered is not None:
+        st.write("Courses en 2023 et 2024:")
+        st.dataframe(races_filtered)
+
+        st.write("Résultats en 2023 et 2024:")
+        st.dataframe(results_filtered)
+
+        # Create and display the first set of plots
+        fig_constructor_points, fig_driver_points = create_plots(races_filtered, results_filtered)
+        st.plotly_chart(fig_constructor_points)
+        st.plotly_chart(fig_driver_points)
+
+        # Create and display additional plots
+        fig_avg_speed, fig_finish_time = create_additional_plots(results_filtered)
+        st.plotly_chart(fig_avg_speed)
+        st.plotly_chart(fig_finish_time)
+
+# Run the app
+if __name__ == "__main__":
+    main()
