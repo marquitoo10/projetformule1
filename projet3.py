@@ -1,158 +1,188 @@
 import pandas as pd
 import numpy as np
-import streamlit as st
 import plotly.graph_objects as go
-from sklearn.neighbors import NearestNeighbors
+import streamlit as st
+from PIL import Image
 
-# Fonction pour lire les données
-def load_data():
-    # Charger les données des fichiers CSV
-    weather_df = pd.read_csv('weather_meteo.csv')
-    circuits_df = pd.read_csv('cleaned_circuits.csv')
-    
-    # Afficher les types de données pour vérification
-    print("Types de colonnes dans weather_df :", weather_df.dtypes)
-    print("Types de colonnes dans circuits_df :", circuits_df.dtypes)
-    
-    # Nettoyer et convertir les données de latitude et longitude
-    if 'fact_latitude' in weather_df.columns and 'fact_longitude' in weather_df.columns:
-        # Vérifier le type des colonnes avant conversion
-        if weather_df['fact_latitude'].dtype == object:
-            weather_df['fact_latitude'] = pd.to_numeric(weather_df['fact_latitude'].str.replace(',', '.'), errors='coerce')
-        if weather_df['fact_longitude'].dtype == object:
-            weather_df['fact_longitude'] = pd.to_numeric(weather_df['fact_longitude'].str.replace(',', '.'), errors='coerce')
-    else:
-        raise KeyError("Les colonnes 'fact_latitude' et 'fact_longitude' sont absentes dans weather_meteo.csv.")
-    
-    if 'lat' in circuits_df.columns and 'lng' in circuits_df.columns:
-        # Vérifier le type des colonnes avant conversion
-        if circuits_df['lat'].dtype == object:
-            circuits_df['lat'] = pd.to_numeric(circuits_df['lat'].str.replace(',', '.'), errors='coerce')
-        if circuits_df['lng'].dtype == object:
-            circuits_df['lng'] = pd.to_numeric(circuits_df['lng'].str.replace(',', '.'), errors='coerce')
-    else:
-        raise KeyError("Les colonnes 'lat' et 'lng' sont absentes dans cleaned_circuits.csv.")
-    
-    return weather_df, circuits_df
+# Charger et afficher le logo F1 avec une taille réduite
+logo_path = 'C:/Users/Marco Luis/Documents/PROJET Data prediction VVA MARCO LUIS/F1-LOGO.png'  # Mets ici le bon chemin vers le logo
+logo = Image.open(logo_path)
+st.image(logo, width=300, caption="Simulation Formule 1")  # Modification du titre
 
-# Fonction pour associer les conditions météo aux circuits
-def match_weather_to_circuits(weather_df, circuits_df):
-    # Convertir les coordonnées en format numpy
-    weather_coords = weather_df[['fact_latitude', 'fact_longitude']].values
-    circuit_coords = circuits_df[['lat', 'lng']].values
-    
-    # Utiliser NearestNeighbors pour trouver les circuits les plus proches des conditions météo
-    nn = NearestNeighbors(n_neighbors=1)
-    nn.fit(circuit_coords)
-    distances, indices = nn.kneighbors(weather_coords)
-    
-    # Ajouter les informations de météo aux circuits
-    weather_df['nearest_circuit'] = indices.flatten()
-    weather_df['circuit_lat'] = circuits_df.loc[weather_df['nearest_circuit'], 'lat'].values
-    weather_df['circuit_lng'] = circuits_df.loc[weather_df['nearest_circuit'], 'lng'].values
-    
-    return weather_df
-
-# Fonction pour générer des données fictives avec randomisation
-def generate_random_data(weather_df, seed=None):
-    drivers = [
-        "Alexander Albon", "Carlos Sainz", "Charles Leclerc", "Daniel Ricciardo", "Esteban Ocon", 
-        "Fernando Alonso", "George Russell", "Guanyu Zhou", "Lance Stroll", "Lando Norris", 
-        "Lewis Hamilton", "Logan Sargeant", "Max Verstappen", "Nico Hülkenberg", "Oscar Piastri", 
-        "Pierre Gasly", "Sergio Pérez", "Valtteri Bottas", "Yuki Tsunoda"
-    ]
-    
-    courses = [
-        "Bahreïn (Sakhir)", "Australie (Melbourne)", "Chine (Shanghai)", "Japon (Suzuka)",
-        "Arabie saoudite (Djeddah)", "Miami (Floride)", "Emilie Romagne (Imola – Italie)",
-        "Monaco (Monte-Carlo)", "Espagne (Barcelone)", "Canada (Montréal)", "Autriche (Spielberg)",
-        "Royaume-Uni (Silverstone)", "Hongrie (Budapest)", "Grand Prix de Belgique (Spa-Francorchamps)",
-        "Pays-Bas (Zandvoort)", "Italie (Monza)", "Azerbaïdjan (Bakou)", "Singapour (Marina Bay)",
-        "USA (Austin)", "Mexique (Mexico City)", "Brésil (São Paulo)", "Las Vegas (Nevada)",
-        "Qatar (Doha)", "Abu Dhabi (Yas Marina)"
-    ]
-    
-    # Utiliser un seed si fourni pour des résultats reproductibles
-    if seed is not None:
-        np.random.seed(seed)
-    
-    course_data = {}
-    
-    for course in courses:
-        if course == "Arabie saoudite (Djeddah)":
-            # Cas spécial pour Arabie saoudite (Djeddah)
-            speeds = np.random.uniform(190, 210, len(drivers))  # Modifier les vitesses pour cet événement
-            times = np.random.uniform(85, 95, len(drivers))  # Modifier les temps pour cet événement
-        else:
-            if course in weather_df['nearest_circuit'].values:
-                # Obtenir les conditions météo pour le circuit le plus proche
-                weather = weather_df[weather_df['nearest_circuit'] == course].iloc[0]  # Prendre la première ligne
-                temperature_effect = 1 - (weather['temperature'] - 20) / 100  # Ajustements basés sur la température
-                temperature_effect = np.clip(temperature_effect, 0.5, 1.5)  # Limiter l'effet
-                
-                speeds = np.random.uniform(200, 220, len(drivers)) * temperature_effect
-                times = np.random.uniform(80, 100, len(drivers)) / temperature_effect
-                times.sort()  # Assure que les temps sont triés pour un affichage réaliste
-            else:
-                speeds = np.random.uniform(200, 220, len(drivers))
-                times = np.random.uniform(80, 100, len(drivers))
-                times.sort()
-        
-        course_data[course] = {
-            "Driver": drivers,
-            "Average Fastest Lap Speed": speeds,
-            "average_time_minutes": times
-        }
-    
-    return course_data
+# Charger les fichiers CSV avec le chemin correct sur ta machine
+temps_par_courses_path = 'C:/Users/Marco Luis/Documents/PROJET Data prediction VVA MARCO LUIS/temps_par_courses.csv'
+drivers_path = 'C:/Users/Marco Luis/Documents/PROJET Data prediction VVA MARCO LUIS/drivers.csv'
+qualifying_path = 'C:/Users/Marco Luis/Documents/PROJET Data prediction VVA MARCO LUIS/cleaned_qualifying.csv'
 
 # Charger les données
-weather_df, circuits_df = load_data()
-weather_df = match_weather_to_circuits(weather_df, circuits_df)
-all_data = generate_random_data(weather_df)
+temps_par_courses_df = pd.read_csv(temps_par_courses_path)
+drivers_df = pd.read_csv(drivers_path)
+qualifying_df = pd.read_csv(qualifying_path)
 
-# Sélectionner une course parmi la liste des courses
-courses = list(all_data.keys())
+# S'assurer que la colonne 'milliseconds' est bien numérique
+temps_par_courses_df['milliseconds'] = pd.to_numeric(temps_par_courses_df['milliseconds'], errors='coerce')
 
-st.title('Simulation de Course F1')
-selected_course = st.selectbox("Choisissez une course", courses)
+# Filtrer les valeurs non numériques (par exemple, les NaN)
+temps_par_courses_df = temps_par_courses_df.dropna(subset=['milliseconds'])
 
-# Filtrer les données pour la course sélectionnée
-if selected_course in all_data:
-    course_data = all_data[selected_course]
-    finish_times_df = pd.DataFrame(course_data)
-else:
-    finish_times_df = pd.DataFrame()
+# Mapping des IDs de pilotes à leurs noms
+driver_mapping = {
+    830: "Max Verstappen",
+    815: "Sergio Pérez",
+    844: "Charles Leclerc",
+    832: "Carlos Sainz",
+    1: "Lewis Hamilton",
+    847: "George Russell",
+    4: "Fernando Alonso",
+    840: "Lance Stroll",
+    846: "Lando Norris",
+    857: "Oscar Piastri",
+    842: "Pierre Gasly",
+    839: "Esteban Ocon",
+    76: "Kevin Magnussen",
+    807: "Nico Hülkenberg",
+    848: "Alex Albon",
+    858: "Logan Sargeant",
+    822: "Valtteri Bottas",
+    855: "Guanyu Zhou",
+    817: "Daniel Ricciardo",
+    852: "Yuki Tsunoda"
+}
 
-# Si aucune donnée pour la course sélectionnée
-if finish_times_df.empty:
-    st.warning(f"Aucune donnée trouvée pour {selected_course}.")
-else:
-    # Simulation de la course
-    fig = go.Figure()
+# Liste des circuits et association avec race_id
+circuit_mapping = {
+    "Bahreïn (Sakhir)": 1098,
+    "Australie (Melbourne)": 1099,
+    "Chine (Shanghai)": 1100,
+    "Japon (Suzuka)": 1101,
+    "Arabie saoudite (Djeddah)": 1102,
+    "Miami (Floride)": 1103,
+    "Emilie Romagne (Imola – Italie)": 1104,
+    "Monaco (Monte-Carlo)": 1105,
+    "Espagne (Barcelone)": 1106,
+    "Canada (Montréal)": 1107,
+    "Autriche (Spielberg)": 1108,
+    "Royaume-Uni (Silverstone)": 1109,
+    "Hongrie (Budapest)": 1110,
+    "Grand Prix de Belgique (Spa-Francorchamps)": 1111,
+    "Pays-Bas (Zandvoort)": 1112,
+    "Italie (Monza)": 1113,
+    "Azerbaïdjan (Bakou)": 1114,
+    "Singapour (Marina Bay)": 1115,
+    "USA (Austin)": 1116,
+    "Mexique (Mexico City)": 1117,
+    "Brésil (São Paulo)": 1118,
+    "Las Vegas (Nevada)": 1119,
+    "Qatar (Doha)": 1120,
+    "Abu Dhabi (Yas Marina)": 1121
+}
+
+# Récupérer les noms des circuits disponibles
+available_circuits = list(circuit_mapping.keys())
+
+# Fonction pour intégrer les positions de départ depuis le fichier des qualifications
+def get_starting_positions(race_id):
+    qualifying_results = qualifying_df[qualifying_df['raceid'] == race_id][['driverid', 'position']]
+    qualifying_results = qualifying_results.rename(columns={'position': 'Position de départ'})
+    qualifying_results = qualifying_results.drop_duplicates(subset='Position de départ')  # S'assurer qu'il n'y a pas de doublons
+    return qualifying_results
+
+# Fonction pour simuler une course avec variation aléatoire et dépassements
+def simulate_race_with_realistic_results(race_id):
+    np.random.seed()  # Utiliser un seed différent pour garantir des résultats variés à chaque simulation
     
-    # Ajouter une trace pour chaque pilote
-    for i, row in finish_times_df.iterrows():
-        # Créer une courbe de progression en fonction du temps pour chaque pilote
+    # Filtrer les résultats de la course sélectionnée
+    race_results = temps_par_courses_df[temps_par_courses_df['race_id'] == race_id]
+    
+    # Calculer les temps moyens pour chaque pilote
+    pilot_avg_times = race_results.groupby('driverid')['milliseconds'].mean().reset_index()
+    
+    # Inclure tous les pilotes même s'ils ne participaient pas à la course
+    full_driver_list = pd.DataFrame(list(driver_mapping.items()), columns=['driverid', 'Nom du pilote'])
+    race_results = pd.merge(full_driver_list, pilot_avg_times, on='driverid', how='left')
+
+    # Intégrer les positions de départ depuis les qualifications
+    starting_positions = get_starting_positions(race_id)
+    race_results = pd.merge(race_results, starting_positions, on='driverid', how='left')
+
+    # Gérer les positions manquantes : assigner les places restantes de manière ordonnée
+    missing_positions = race_results['Position de départ'].isnull()
+    available_positions = set(range(1, 21)) - set(race_results['Position de départ'].dropna().astype(int))
+    race_results.loc[missing_positions, 'Position de départ'] = list(available_positions)[:missing_positions.sum()]
+
+    # Générer des variations autour des temps historiques pour la simulation
+    variation_factor = np.random.uniform(0.90, 1.10, len(race_results))
+    race_results['simulated_time'] = race_results['milliseconds'] * variation_factor
+    
+    # Trier par temps simulé pour obtenir le classement final
+    race_results = race_results.sort_values('simulated_time')
+
+    # Générer un classement basé sur les temps simulés
+    race_results['Position finale'] = range(1, len(race_results) + 1)
+    
+    return race_results[['Nom du pilote', 'Position de départ', 'Position finale', 'simulated_time']]
+
+# Fonction pour générer un graphique dynamique avec dépassements
+def generate_dynamic_race_graph(simulated_race_results):
+    fig = go.Figure()
+
+    # Simulation des positions à différents moments de la course (10 moments)
+    race_progress = np.linspace(0, 100, 10)  # Progression de 0% à 100%
+    num_drivers = len(simulated_race_results)
+    
+    # Simuler des dépassements pendant la course
+    for i, row in simulated_race_results.iterrows():
+        start_position = row['Position de départ']  # Position de départ
+        end_position = row['Position finale']  # Position finale simulée
+        
+        # Simuler la progression dynamique des positions
+        initial_position = np.linspace(start_position, end_position, len(race_progress))
+        position_progress = initial_position  # Le progrès est linéaire entre départ et arrivée
+        
         fig.add_trace(go.Scatter(
-            x=np.linspace(0, row['average_time_minutes'], 100),  # 100 points entre 0 et le temps moyen
-            y=np.linspace(row['Average Fastest Lap Speed'], row['Average Fastest Lap Speed'] + (row['average_time_minutes'] / 2), 100),  # Simule une variation de vitesse
+            x=race_progress,
+            y=position_progress,
             mode='lines+markers',
-            name=row['Driver'],
-            line=dict(width=2)
+            name=row['Nom du pilote']
         ))
 
-    # Configuration du graphique
+    # Mise à jour du layout
     fig.update_layout(
-        title=f"Simulation de la course {selected_course}",
-        xaxis_title="Temps (minutes)",
-        yaxis_title="Vitesse (km/h)",
-        legend_title="Pilotes"
+        title="Simulation dynamique de la course avec dépassements",
+        xaxis_title="Progression de la course (%)",
+        yaxis_title="Position",
+        yaxis=dict(
+            tickmode='array',
+            tickvals=list(range(1, 21)),  # Positions de 1 à 20
+            autorange="reversed"  # Le premier est en haut
+        ),
+        xaxis=dict(
+            range=[0, 100]  # Progression de 0 à 100%
+        ),
+        showlegend=True
     )
-
-    # Afficher le graphique
-    st.plotly_chart(fig)
     
-    # Afficher le classement final
-    st.subheader(f"Classement Final pour {selected_course}")
-    st.dataframe(finish_times_df[['Driver', 'average_time_minutes']].rename(columns={'Driver': 'Pilote', 'average_time_minutes': 'Temps (minutes)'}))
+    return fig
+
+# Interface utilisateur avec Streamlit
+st.title('Simulation de Course F1 avec Dépassements Dynamiques')
+
+# Sélectionner un circuit
+selected_circuit = st.selectbox("Choisissez un circuit", available_circuits)
+
+# Récupérer le race_id correspondant au circuit
+selected_race_id = circuit_mapping[selected_circuit]
+
+# Simuler la course lorsque le bouton est cliqué
+if st.button("Simuler la course"):
+    simulated_race_results = simulate_race_with_realistic_results(selected_race_id)
+    
+    # Afficher les résultats avec la position de départ et la position finale
+    st.subheader(f"Résultats simulés de la course : {selected_circuit}")
+    st.dataframe(simulated_race_results[['Position de départ', 'Nom du pilote', 'Position finale']])
+    
+    # Générer le graphique dynamique des dépassements
+    race_graph = generate_dynamic_race_graph(simulated_race_results)
+    
+    # Afficher le graphique
+    st.plotly_chart(race_graph)
